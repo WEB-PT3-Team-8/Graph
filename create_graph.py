@@ -1,7 +1,7 @@
 import time
 import random
 import requests
-import copy
+import json
 
 from util import Queue
 from config import API_TOKEN
@@ -20,26 +20,12 @@ headers = {'Authorization': f'Token {API_TOKEN}'}
 
 reverse_dir = {'n': 's', 's': 'n', 'e': 'w', 'w': 'e'}
 
-def get_current_room():
+def get_room_info():
     # sending get request to init to get the current room exits  
     r = requests.get(url = INIT_URL, headers=headers) 
     # extracting data in json format 
     data = r.json() 
-    return (data['room_id'], data['cooldown'])
-
-def get_exits():
-    # sending get request to init to get the current room exits  
-    r = requests.get(url = INIT_URL, headers=headers) 
-    # extracting data in json format 
-    data = r.json() 
-    return (data['exits'], data['cooldown'])
-
-def get_coordinates():
-    # sending get request to init to get the current room exits  
-    r = requests.get(url = INIT_URL, headers=headers) 
-    # extracting data in json format 
-    data = r.json() 
-    return (data['coordinates'], data['cooldown'])
+    return data
 
 def find_next_dir(current_room, visited):
     #  picks a random unexplored direction from the player's current room's exits list, 
@@ -49,16 +35,20 @@ def find_next_dir(current_room, visited):
     travel_dir = None
     cooldown = 0
     if current_room not in visited:
-        exits, cooldown = get_exits()
+        data = get_room_info()
+        exits = data['exits']
+        coordinates = data['coordinates']
+        cooldown = data['cooldown']
+        title = data['title']
         # Wait for cooldown
         time.sleep(cooldown)
-        coordinates, cooldown = get_coordinates()
         directions = {}
         for direction in exits:
             directions[direction] = '?'
         info = {}
         info['directions'] = directions
         info["coordinates"] = coordinates
+        info['title'] = title
         visited[current_room] = info
         travel_dir = random.choice(list(directions.keys()))
     else:
@@ -76,7 +66,10 @@ def player_move(direction, visited):
     # defining a params dict for the parameters to be sent to the API 
     PARAMS = {"direction": direction} 
 
-    current_room, cooldown = get_current_room()
+    # current_room, cooldown = get_current_room()
+    data = get_room_info()
+    current_room = data['room_id']
+    cooldown = data['cooldown']
     # Wait for cooldown
     time.sleep(cooldown)
     if current_room in visited and visited[current_room]['directions'][direction] != '?':
@@ -87,17 +80,18 @@ def player_move(direction, visited):
     r = requests.post(url=MOVE_URL, json=PARAMS, headers=headers) 
     # extracting data in json format 
     data = r.json() 
-    print(f"data after move: {data}")
     return (data['room_id'], data['cooldown'])
 
 def traverse_to_deadend(visited):
-    current_room, cooldown = get_current_room()
+    # current_room, cooldown = get_current_room()
+    data = get_room_info()
+    current_room = data['room_id']
+    cooldown = data['cooldown']
     # Wait for cooldown
     time.sleep(cooldown)
     next_direction, cooldown = find_next_dir(current_room, visited)
     # Wait for cooldown
     time.sleep(cooldown)
-    print(f"next direction: {next_direction}, visited: {visited}")
     while next_direction is not None:
         new_room, cooldown = player_move(next_direction, visited)
         # Wait for cooldown
@@ -107,7 +101,11 @@ def traverse_to_deadend(visited):
         visited[current_room]['directions'][next_direction] = new_room
         # save the current room in the new room's directions
         if new_room not in visited:
-            new_exits, cooldown = get_exits()
+            data = get_room_info()
+            new_exits = data['exits']
+            coordinates = data['coordinates']
+            cooldown = data['cooldown']
+            title = data['title']
             # Wait for cooldown
             time.sleep(cooldown)
             directions = {}
@@ -116,27 +114,30 @@ def traverse_to_deadend(visited):
                     directions[direction] = current_room
                 else:
                     directions[direction] = '?'
-            coordinates, cooldown = get_coordinates()
-            # Wait for cooldown
-            time.sleep(cooldown)
             info = {}
             info['directions'] = directions
             info["coordinates"] = coordinates
+            info['title'] = title
             visited[new_room] = info
         else:
             visited[new_room]['directions'][reverse_dir[next_direction]] = current_room
-        print(f"new room: {new_room}, visited: {visited}")
 
         next_direction, cooldown = find_next_dir(new_room, visited)
         # Wait for cooldown
         time.sleep(cooldown)
-        current_room, cooldown = get_current_room()
+        # current_room, cooldown = get_current_room()
+        data = get_room_info()
+        current_room = data['room_id']
+        cooldown = data['cooldown']
         # Wait for cooldown
         time.sleep(cooldown)
 
 def find_next_room_path(visited):
     # Use DFS to get the next room
-    current_room, cooldown = get_current_room()
+    # current_room, cooldown = get_current_room()
+    data = get_room_info()
+    current_room = data['room_id']
+    cooldown = data['cooldown']
     # Wait for cooldown
     time.sleep(cooldown)
     queue = Queue()
@@ -145,7 +146,6 @@ def find_next_room_path(visited):
     while queue.size() > 0:
         path = queue.dequeue()
         room = path[-1][1]
-        print(f"room: {room}, path: {path}")
         new_dir, cooldown = find_next_dir(room, visited)
         # Wait for cooldown
         time.sleep(cooldown)
@@ -172,6 +172,7 @@ more_rooms = True
 
 # Keep looking for more rooms until all visited
 while more_rooms is True:
+    print(f"visited: {visited}")
     traverse_to_deadend(visited)
     path = find_next_room_path(visited)
     if path is not None:
@@ -183,3 +184,8 @@ while more_rooms is True:
             time.sleep(cooldown)
     else:
         more_rooms = False
+
+# Final graph - after visiting all rooms
+print(f"GRAPH: {visited}")
+with open('graph.json', 'w') as fp:
+    json.dump(visited, fp)
