@@ -16,7 +16,7 @@ STATUS_URL = BASE_URL + "status/"
 MOVE_URL = BASE_URL + "move/"
 
 # Headers
-headers = {'Authorization': f'Token {API_TOKEN}'}
+headers = {'Authorization': f'Token { API_TOKEN }'}
 
 reverse_dir = {'n': 's', 's': 'n', 'e': 'w', 'w': 'e'}
 
@@ -30,7 +30,6 @@ def get_room_info():
 def find_next_dir(current_room, visited):
     #  picks a random unexplored direction from the player's current room's exits list, 
     # If no available exits, return None
-
     # get available exits from the current_room
     travel_dir = None
     cooldown = 0
@@ -65,7 +64,6 @@ def find_next_dir(current_room, visited):
 def player_move(direction, visited):
     # defining a params dict for the parameters to be sent to the API 
     PARAMS = {"direction": direction} 
-
     # current_room, cooldown = get_current_room()
     data = get_room_info()
     current_room = data['room_id']
@@ -74,13 +72,14 @@ def player_move(direction, visited):
     time.sleep(cooldown)
     if current_room in visited and visited[current_room]['directions'][direction] != '?':
         next_room = visited[current_room]['directions'][direction]
-        PARAMS["next_room_id"] = f"{next_room}"
+        PARAMS["next_room_id"] = f"{ next_room }"
 
     # sending get request to init to get the current room exits  
     r = requests.post(url=MOVE_URL, json=PARAMS, headers=headers) 
     # extracting data in json format 
     data = r.json() 
     return (data['room_id'], data['cooldown'])
+
 
 def traverse_to_deadend(visited):
     # current_room, cooldown = get_current_room()
@@ -186,6 +185,6 @@ while more_rooms is True:
         more_rooms = False
 
 # Final graph - after visiting all rooms
-print(f"GRAPH: {visited}")
+print(f"GRAPH: { visited }")
 with open('graph.json', 'w') as fp:
     json.dump(visited, fp)
